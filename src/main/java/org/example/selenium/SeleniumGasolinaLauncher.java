@@ -38,6 +38,8 @@ public class SeleniumGasolinaLauncher {
 
         ChromeOptions options = new ChromeOptions();
 
+        options.setBinary("/usr/bin/google-chrome");    // ubica a selenium la ubicacion de chrome
+
         options.addArguments("--headless=new");
         options.addArguments("--no-sandbox");
         options.addArguments("--disable-dev-shm-usage");
