@@ -31,7 +31,7 @@ jobs:
           sudo apt install -y google-chrome-stable
 
       - name: Ejecutar programa
-        run: mvn -q exec:java -Dexec.mainClass="org.example.Main"
+        run: mvn exec:java -Dexec.mainClass="org.example.Main"
 
       - name: Subir GeoJSON
         run: |
