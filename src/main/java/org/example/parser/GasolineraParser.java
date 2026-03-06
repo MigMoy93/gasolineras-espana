@@ -20,21 +20,27 @@ public class GasolineraParser {
 
             JsonObject obj = elemento.getAsJsonObject();
 
-            if (!existe(obj, "IDEESS")) continue;
-            if (!existe(obj, "Latitud")) continue;
-            if (!existe(obj, "Longitud")) continue;
+            String id = getTexto(obj, "IDEESS");
+            String rotulo = getTexto(obj, "Rótulo");
+            String municipio = getTexto(obj, "Municipio");
+
+            double lat = getNumero(obj, "Latitud");
+            double lon = getNumero(obj, "Longitud (WGS84)", "Longitud");
+
+            double p95 = getNumero(obj, "Precio Gasolina 95 E5");
+            double diesel = getNumero(obj, "Precio Gasóleo A", "Precio Gasoleo A");
+
+            if (id.isEmpty()) continue;
+            if (lat == -1 || lon == -1) continue;
 
             Gasolinera g = new Gasolinera(
-
-                    getTexto(obj, "IDEESS"),
-                    getTexto(obj, "Rótulo"),
-                    getTexto(obj, "Municipio"),
-
-                    getNumero(obj, "Latitud"),
-                    getNumero(obj, "Longitud"),
-
-                    getNumero(obj, "Precio Gasolina 95 E5"),
-                    getNumero(obj, "Precio Gasóleo A", "Precio Gasoleo A")
+                    id,
+                    rotulo,
+                    municipio,
+                    lat,
+                    lon,
+                    p95,
+                    diesel
             );
 
             lista.add(g);
@@ -43,27 +49,29 @@ public class GasolineraParser {
         return lista;
     }
 
-    private static boolean existe(JsonObject obj, String campo) {
-
-        return obj.has(campo)
-                && !obj.get(campo).isJsonNull()
-                && !obj.get(campo).getAsString().trim().isEmpty();
-    }
-
     private static String getTexto(JsonObject obj, String campo) {
 
-        return existe(obj, campo) ? obj.get(campo).getAsString() : "";
+        if (obj.has(campo) && !obj.get(campo).isJsonNull()) {
+
+            return obj.get(campo).getAsString().trim();
+        }
+
+        return "";
     }
 
     private static double getNumero(JsonObject obj, String... campos) {
 
         for (String campo : campos) {
 
-            if (existe(obj, campo)) {
+            if (obj.has(campo) && !obj.get(campo).isJsonNull()) {
 
-                return Double.parseDouble(
-                        obj.get(campo).getAsString().replace(",", ".")
-                );
+                String valor = obj.get(campo).getAsString();
+
+                if (valor.isEmpty()) continue;
+
+                try {
+                    return Double.parseDouble(valor.replace(",", "."));
+                } catch (Exception ignored) {}
             }
         }
 

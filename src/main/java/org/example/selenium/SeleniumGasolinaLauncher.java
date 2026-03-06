@@ -10,6 +10,7 @@ import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.chrome.ChromeOptions;
 
+import java.io.File;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -21,15 +22,21 @@ public class SeleniumGasolinaLauncher {
 
     public static void ejecutar() {
 
-        String json = obtenerJson();
+        System.out.println("Iniciando descarga de datos...");
 
-        List<Gasolinera> lista = GasolineraParser.parsear(json);
+        String json = obtenerJson();
 
         if (json.startsWith("ERROR")) {
             throw new RuntimeException("Error obteniendo JSON: " + json);
         }
 
+        List<Gasolinera> lista = GasolineraParser.parsear(json);
+
+        System.out.println("Gasolineras procesadas: " + lista.size());
+
         guardarGeoJson(lista);
+
+        System.out.println("GeoJSON generado correctamente");
     }
 
     private static String obtenerJson() {
@@ -38,13 +45,10 @@ public class SeleniumGasolinaLauncher {
 
         ChromeOptions options = new ChromeOptions();
 
-        options.setBinary("/usr/bin/google-chrome");    // ubica a selenium la ubicacion de chrome
-
         options.addArguments("--headless=new");
         options.addArguments("--no-sandbox");
         options.addArguments("--disable-dev-shm-usage");
         options.addArguments("--disable-gpu");
-        options.addArguments("--window-size=1920,1080"); // Configuracion segura para ejecuciones online
 
         WebDriver driver = new ChromeDriver(options);
 
@@ -72,10 +76,18 @@ public class SeleniumGasolinaLauncher {
 
         String raiz = System.getProperty("user.dir");
 
+        // GeoJSON principal
         GasolineraExporter.exportarGeoJson(lista, raiz + "/gasolineras.geojson");
+
+        // Carpeta histórico
+        String carpeta = raiz + "/historico";
+        new File(carpeta).mkdirs();
 
         String fecha = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
 
-        GasolineraExporter.exportarGeoJson(lista, raiz + "/gasolineras_" + fecha + ".geojson");
+        GasolineraExporter.exportarGeoJson(
+                lista,
+                carpeta + "/gasolineras_" + fecha + ".geojson"
+        );
     }
 }

@@ -39,8 +39,8 @@ jobs:
           git config user.name "github-actions"
           git config user.email "actions@github.com"
       
-          git add *.geojson
-      
+          git add *.geojson historico/*.geojson
+
           if git diff --cached --quiet; then
             echo "Sin cambios"
             exit 0
