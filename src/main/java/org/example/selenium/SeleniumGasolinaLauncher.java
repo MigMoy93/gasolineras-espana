@@ -25,6 +25,10 @@ public class SeleniumGasolinaLauncher {
 
         List<Gasolinera> lista = GasolineraParser.parsear(json);
 
+        if (json.startsWith("ERROR")) {
+            throw new RuntimeException("Error obteniendo JSON: " + json);
+        }
+
         guardarGeoJson(lista);
     }
 
@@ -38,6 +42,7 @@ public class SeleniumGasolinaLauncher {
         options.addArguments("--no-sandbox");
         options.addArguments("--disable-dev-shm-usage");
         options.addArguments("--disable-gpu");
+        options.addArguments("--window-size=1920,1080"); // Configuracion segura para ejecuciones online
 
         WebDriver driver = new ChromeDriver(options);
 
