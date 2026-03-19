@@ -3,6 +3,7 @@ package org.example.selenium;
 import org.example.export.GasolineraExporter;
 import org.example.model.Gasolinera;
 import org.example.parser.GasolineraParser;
+import org.example.export.HistoricoManager;
 
 import io.github.bonigarcia.wdm.WebDriverManager;
 import org.openqa.selenium.JavascriptExecutor;
@@ -33,9 +34,13 @@ public class SeleniumGasolinaLauncher {
         List<Gasolinera> lista = GasolineraParser.parsear(json);
 
         System.out.println("Gasolineras procesadas: " + lista.size());
-
+        
+        // Genera el dataset completo del día (mapa, listado, etc.)
         guardarGeoJson(lista);
-
+        
+        // Actualiza el histórico optimizado (solo cambios de precio)
+        HistoricoManager.actualizar(lista);
+        
         System.out.println("GeoJSON generado correctamente");
     }
 
