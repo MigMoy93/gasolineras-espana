@@ -51,9 +51,10 @@ public class GasolineraParser {
             double glp = getNumero(obj, "Precio Gases licuados del petróleo");
             double gnc = getNumero(obj, "Precio Gas Natural Comprimido");
             double gnl = getNumero(obj, "Precio Gas Natural Licuado");
-    
-            if (id.isEmpty()) continue;
-            if (lat == -1 || lon == -1) continue;
+
+            // Filtra para datos vacios, coordenadas invalidas
+            if (id.isEmpty() || lat == -1 || lon == -1) continue;
+            if (lat < 27 || lat > 45 || lon < -20 || lon > 5) continue;
     
             Gasolinera g = new Gasolinera(
                     id,
