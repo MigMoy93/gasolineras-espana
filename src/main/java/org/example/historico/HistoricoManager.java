@@ -57,7 +57,7 @@ public class HistoricoManager {
             }
 
             double p95 = g.p95;
-            double diesel = g.d;
+            double diesel = g.diesel;
 
             // Gestion de valores -1 (no disponibles)
             // Si hay un valor anterior, se hereda
