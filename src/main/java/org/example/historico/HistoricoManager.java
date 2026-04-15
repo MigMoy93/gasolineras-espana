@@ -14,10 +14,9 @@ import java.util.*;
  * Clase encargada de gestionar el historico de precios de las gasolineras.
  *
  * FUNCIONAMIENTO:
- * - Mantiene un archivo JSON con una lista plana de registros (no agrupado por id).
- * - Solo se guarda un nuevo registro cuando el precio cambia.
+ * - Mantiene un archivo JSON con una lista plana de registros (Op anterior agrupar por id).
+ * - Solo se guarda un nuevo registro cuando el precio cambia (si no, coge el anterior).
  * - Si el precio viene como -1 (no disponible), se convierte a null.
- * - Si un valor es null, se intenta heredar el ultimo valor conocido.
  *
  * FUNCIONALIDAD:
  * - Reducir tamaño del historico
