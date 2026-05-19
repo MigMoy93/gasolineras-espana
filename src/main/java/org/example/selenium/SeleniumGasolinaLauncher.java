@@ -1,15 +1,16 @@
 package org.example.selenium;
 
 import org.example.export.GasolineraExporter;
+import org.example.export.HistoricoManager;
 import org.example.model.Gasolinera;
 import org.example.parser.GasolineraParser;
-import org.example.export.HistoricoManager;
 
 import io.github.bonigarcia.wdm.WebDriverManager;
-import org.openqa.selenium.JavascriptExecutor;
+import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.chrome.ChromeOptions;
+import org.openqa.selenium.support.ui.WebDriverWait;
 
 import java.io.File;
 import java.time.Duration;
@@ -17,113 +18,89 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 
-// Clase encargada de descargar los datos de gasolineras, procesarlos. Ejecutándose en un entorno Linux (GitHub Actions) para generar el dataset de la app.
-// Usa Selenium para obtener el JSON, crea el GeoJSON para la app y guarda un histórico diario.
+// Clase encargada de descargar los datos de gasolineras con Selenium.
+// Se ejecuta en GitHub Actions (Linux headless) para generar el dataset de la app.
 
 public class SeleniumGasolinaLauncher {
 
-    // URL del ministerio de donde sacamos los datos (API pública)
+    // URL de la API pública del Ministerio de Energía
     private static final String URL =
             "https://sedeaplicaciones.minetur.gob.es/ServiciosRESTCarburantes/PreciosCarburantes/EstacionesTerrestres/";
 
     public static void ejecutar() {
 
-        // Mensaje para logs (útil en GitHub Actions)
         System.out.println("Iniciando descarga de datos...");
 
-        // Obtenemos el JSON usando Selenium
         String json = obtenerJson();
 
-        // Si algo falla en la descarga, paramos el programa
-        if (json.startsWith("ERROR")) {
+        if (json == null || json.startsWith("ERROR")) {
             throw new RuntimeException("Error obteniendo JSON: " + json);
         }
 
-        // Convertimos el JSON a objetos Java (Gasolinera)
         List<Gasolinera> lista = GasolineraParser.parsear(json);
 
-        // Para comprobar que realmente hay datos (~11.000 normalmente)
         System.out.println("Gasolineras procesadas: " + lista.size());
-        
-        // Genera el dataset principal (para el mapa y la app)
+
         guardarGeoJson(lista);
-        
-        // Actualiza histórico optimizado (solo cambios de precio)
+
         HistoricoManager.actualizar(lista);
-        
+
         System.out.println("GeoJSON generado correctamente");
     }
 
     private static String obtenerJson() {
 
-        // Descarga automáticamente el driver de Chrome compatible
+        // Descarga automáticamente el chromedriver compatible con el Chrome instalado
         WebDriverManager.chromedriver().setup();
 
-        // Configuración del navegador
         ChromeOptions options = new ChromeOptions();
+        options.addArguments("--headless=new");          // Sin interfaz gráfica (obligatorio en GitHub Actions)
+        options.addArguments("--no-sandbox");             // Necesario en Linux
+        options.addArguments("--disable-dev-shm-usage"); // Evita errores de memoria compartida en Linux
+        options.addArguments("--disable-gpu");            // Evita errores de renderizado en headless
 
-        // Ejecuta Chrome sin interfaz (obligatorio en GitHub Actions)
-        options.addArguments("--headless=new");
-
-        // Flags necesarios para evitar errores en Linux
-        options.addArguments("--no-sandbox");
-        options.addArguments("--disable-dev-shm-usage");
-        options.addArguments("--disable-gpu");
-
-        // Creamos el navegador
         WebDriver driver = new ChromeDriver(options);
-
-        // Timeout para el script XHR (~17MB de datos, necesita tiempo suficiente)
-        driver.manage().timeouts().scriptTimeout(Duration.ofSeconds(120));
 
         try {
 
-            // Navegamos a la URL primero para establecer el mismo origen que la API.
-            // Así el XHR posterior es same-origin y no hay restricciones CORS.
-            // (fetch() fallaba antes desde about:blank porque era cross-origin)
+            // Selenium navega a la URL de la API del Ministerio
             driver.get(URL);
 
-            // XHR asíncrono desde el mismo contexto de origen → devuelve el JSON crudo,
-            // sin que Chrome lo procese ni lo muestre en el visor JSON
-            String json = (String) ((JavascriptExecutor) driver).executeAsyncScript(
-                "var callback = arguments[arguments.length - 1];" +
-                "var xhr = new XMLHttpRequest();" +
-                "xhr.open('GET', location.href);" +
-                "xhr.onload = function() { callback(xhr.responseText); };" +
-                "xhr.onerror = function() { callback('ERROR:XHR fallido'); };" +
-                "xhr.send();"
-            );
+            // Espera activa (máx. 30s) hasta que el body contenga JSON real.
+            // Chrome puede mostrar texto de carga o del visor antes de tener el JSON,
+            // por eso comprobamos que el contenido empiece por '{' (inicio de JSON válido).
+            new WebDriverWait(driver, Duration.ofSeconds(30))
+                    .until(d -> d.findElement(By.tagName("body"))
+                                 .getText()
+                                 .trim()
+                                 .startsWith("{"));
+
+            // Leemos el JSON del body (en Linux headless devuelve el texto puro)
+            String json = driver.findElement(By.tagName("body")).getText().trim();
+
+            // Log para verificar en GitHub Actions que el JSON llega correctamente
+            System.out.println("JSON recibido. Primeros 80 chars: " +
+                    json.substring(0, Math.min(80, json.length())));
 
             return json;
 
         } finally {
-
-            // Cerramos el navegador siempre
-            driver.quit();
+            driver.quit(); // Siempre cerramos el navegador
         }
     }
 
     private static void guardarGeoJson(List<Gasolinera> lista) {
 
-        // Ruta raíz del proyecto (donde se ejecuta el programa)
         String raiz = System.getProperty("user.dir");
 
-        // Archivo principal (el que usará la app Android)
+        // Archivo principal que usa la app Android
         GasolineraExporter.exportarGeoJson(lista, raiz + "/gasolineras.geojson");
 
-        // Carpeta donde guardamos histórico diario
+        // Copia diaria en la carpeta histórico
         String carpeta = raiz + "/historico";
-
-        // Crea la carpeta si no existe
         new File(carpeta).mkdirs();
 
-        // Fecha actual para el nombre del archivo
         String fecha = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
-
-        // Guardamos una copia del dataset de hoy
-        GasolineraExporter.exportarGeoJson(
-                lista,
-                carpeta + "/gasolineras_" + fecha + ".geojson"
-        );
+        GasolineraExporter.exportarGeoJson(lista, carpeta + "/gasolineras_" + fecha + ".geojson");
     }
 }
