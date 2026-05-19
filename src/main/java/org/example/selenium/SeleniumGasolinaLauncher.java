@@ -76,24 +76,22 @@ public class SeleniumGasolinaLauncher {
         driver.manage().timeouts().scriptTimeout(java.time.Duration.ofSeconds(60));
 
         try {
-
-            // Abrimos una página vacía para poder ejecutar JS
-            driver.get("about:blank");
-
-            // Permite ejecutar JavaScript dentro del navegador
-            JavascriptExecutor js = (JavascriptExecutor) driver;
-
-            // Ejecutamos fetch dentro del navegador (simula scraping)
-            return (String) js.executeAsyncScript(
-                    "const callback = arguments[0];" +
-                            "fetch('" + URL + "')" +
-                            ".then(r => r.text())" +
-                            ".then(t => callback(t))" +
-                            ".catch(e => callback('ERROR:' + e));"
-            );
-
+        
+            // Abrimos directamente la URL del ministerio
+            driver.get(URL);
+        
+            // Espera pequeña para asegurar que el contenido carga correctamente
+            Thread.sleep(2000);
+        
+            // El JSON aparece dentro de una etiqueta <pre>
+            String json = driver.findElement(
+                    org.openqa.selenium.By.tagName("pre")
+            ).getText();
+        
+            return json;
+        
         } finally {
-
+        
             // Cerramos el navegador siempre
             driver.quit();
         }
