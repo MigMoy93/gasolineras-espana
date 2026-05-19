@@ -25,7 +25,7 @@ public class SeleniumGasolinaLauncher {
     private static final String URL =
             "https://sedeaplicaciones.minetur.gob.es/ServiciosRESTCarburantes/PreciosCarburantes/EstacionesTerrestres/";
 
-    public static void ejecutar() {
+    public static void ejecutar() throws InterruptedException {
 
         // Mensaje para logs (útil en GitHub Actions)
         System.out.println("Iniciando descarga de datos...");
@@ -53,7 +53,7 @@ public class SeleniumGasolinaLauncher {
         System.out.println("GeoJSON generado correctamente");
     }
 
-    private static String obtenerJson() {
+    private static String obtenerJson() throws InterruptedException {
 
         // Descarga automáticamente el driver de Chrome compatible
         WebDriverManager.chromedriver().setup();
