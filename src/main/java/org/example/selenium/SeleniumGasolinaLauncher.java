@@ -85,7 +85,7 @@ public class SeleniumGasolinaLauncher {
         
             // El JSON aparece dentro de una etiqueta <pre>
             String json = driver.findElement(
-                    org.openqa.selenium.By.tagName("pre")
+                    org.openqa.selenium.By.tagName("body")
             ).getText();
         
             return json;
