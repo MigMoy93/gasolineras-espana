@@ -6,11 +6,10 @@ import org.example.parser.GasolineraParser;
 import org.example.export.HistoricoManager;
 
 import io.github.bonigarcia.wdm.WebDriverManager;
-import org.openqa.selenium.By;
+import org.openqa.selenium.JavascriptExecutor;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.chrome.ChromeOptions;
-import org.openqa.selenium.support.ui.WebDriverWait;
 
 import java.io.File;
 import java.time.Duration;
@@ -71,34 +70,34 @@ public class SeleniumGasolinaLauncher {
         options.addArguments("--disable-dev-shm-usage");
         options.addArguments("--disable-gpu");
 
-        // Desactiva el visor JSON de Chrome: sin esto, --headless=new envuelve
-        // la respuesta JSON en HTML de visor (añade texto "Raw data" u otros
-        // elementos de UI antes del '{'), lo que rompe el parse de Gson.
-        options.addArguments("--disable-features=JSONView");
-
         // Creamos el navegador
         WebDriver driver = new ChromeDriver(options);
 
-        try {
-        
-            // Abrimos directamente la URL del ministerio
-            driver.get(URL);
-        
-            // Espera hasta que el body tenga contenido real (máx 15s)
-            new WebDriverWait(driver, Duration.ofSeconds(15))
-                    .until(d -> !d.findElement(By.tagName("body")).getText().isEmpty());
-        
-            String bodyText = driver.findElement(By.tagName("body")).getText();
+        // Timeout para el script XHR (~17MB de datos, necesita tiempo suficiente)
+        driver.manage().timeouts().scriptTimeout(Duration.ofSeconds(120));
 
-            // Red de seguridad: si quedara algún prefijo de texto antes del JSON,
-            // lo descartamos buscando el primer '{'
-            int inicio = bodyText.indexOf('{');
-            String json = (inicio > 0) ? bodyText.substring(inicio) : bodyText;
-        
+        try {
+
+            // Navegamos a la URL primero para establecer el mismo origen que la API.
+            // Así el XHR posterior es same-origin y no hay restricciones CORS.
+            // (fetch() fallaba antes desde about:blank porque era cross-origin)
+            driver.get(URL);
+
+            // XHR asíncrono desde el mismo contexto de origen → devuelve el JSON crudo,
+            // sin que Chrome lo procese ni lo muestre en el visor JSON
+            String json = (String) ((JavascriptExecutor) driver).executeAsyncScript(
+                "var callback = arguments[arguments.length - 1];" +
+                "var xhr = new XMLHttpRequest();" +
+                "xhr.open('GET', location.href);" +
+                "xhr.onload = function() { callback(xhr.responseText); };" +
+                "xhr.onerror = function() { callback('ERROR:XHR fallido'); };" +
+                "xhr.send();"
+            );
+
             return json;
-        
+
         } finally {
-        
+
             // Cerramos el navegador siempre
             driver.quit();
         }
