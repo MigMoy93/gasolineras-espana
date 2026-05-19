@@ -6,11 +6,10 @@ import org.example.model.Gasolinera;
 import org.example.parser.GasolineraParser;
 
 import io.github.bonigarcia.wdm.WebDriverManager;
-import org.openqa.selenium.By;
+import org.openqa.selenium.JavascriptExecutor;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.chrome.ChromeOptions;
-import org.openqa.selenium.support.ui.WebDriverWait;
 
 import java.io.File;
 import java.time.Duration;
@@ -20,12 +19,21 @@ import java.util.List;
 
 // Clase encargada de descargar los datos de gasolineras con Selenium.
 // Se ejecuta en GitHub Actions (Linux headless) para generar el dataset de la app.
+//
+// NOTA TÉCNICA: se usa executeAsyncScript (API de Selenium) en lugar de body.getText()
+// porque el JSON pesa ~17MB. Chrome renderiza ese volumen en su visor JSON como un árbol
+// DOM de miles de nodos, y getText() agota el timeout intentando recorrerlos todos.
+// executeAsyncScript hace una petición XHR al mismo origen y devuelve el texto crudo
+// directamente, evitando el renderizado del visor y el timeout.
 
 public class SeleniumGasolinaLauncher {
 
     // URL de la API pública del Ministerio de Energía
     private static final String URL =
             "https://sedeaplicaciones.minetur.gob.es/ServiciosRESTCarburantes/PreciosCarburantes/EstacionesTerrestres/";
+
+    // Timeout para la descarga del JSON (~17MB). 120s es suficiente en GitHub Actions.
+    private static final int TIMEOUT_JSON_SEGUNDOS = 120;
 
     public static void ejecutar() {
 
@@ -50,7 +58,7 @@ public class SeleniumGasolinaLauncher {
 
     private static String obtenerJson() {
 
-        // Descarga automáticamente el chromedriver compatible con el Chrome instalado
+        // WebDriverManager descarga el chromedriver compatible con el Chrome instalado
         WebDriverManager.chromedriver().setup();
 
         ChromeOptions options = new ChromeOptions();
@@ -61,24 +69,28 @@ public class SeleniumGasolinaLauncher {
 
         WebDriver driver = new ChromeDriver(options);
 
+        // Tiempo máximo que Selenium espera a que el script XHR devuelva el JSON
+        driver.manage().timeouts().scriptTimeout(Duration.ofSeconds(TIMEOUT_JSON_SEGUNDOS));
+
         try {
 
-            // Selenium navega a la URL de la API del Ministerio
+            // Paso 1: Selenium navega a la URL para establecer el contexto de origen.
+            // Al estar en la misma URL que la API, la petición XHR posterior
+            // es "same-origin" y no hay restricciones CORS.
             driver.get(URL);
 
-            // Espera activa (máx. 30s) hasta que el body contenga JSON real.
-            // Chrome puede mostrar texto de carga o del visor antes de tener el JSON,
-            // por eso comprobamos que el contenido empiece por '{' (inicio de JSON válido).
-            new WebDriverWait(driver, Duration.ofSeconds(30))
-                    .until(d -> d.findElement(By.tagName("body"))
-                                 .getText()
-                                 .trim()
-                                 .startsWith("{"));
+            // Paso 2: Selenium ejecuta un script XHR asíncrono (JavascriptExecutor es API de Selenium).
+            // El script hace una petición HTTP a la misma URL y devuelve el JSON crudo,
+            // sin que Chrome lo renderice en su visor (lo que causaba TimeoutException con getText()).
+            String json = (String) ((JavascriptExecutor) driver).executeAsyncScript(
+                    "var callback = arguments[arguments.length - 1];" +
+                    "var xhr = new XMLHttpRequest();" +
+                    "xhr.open('GET', location.href);" +
+                    "xhr.onload  = function() { callback(xhr.responseText); };" +
+                    "xhr.onerror = function() { callback('ERROR: XHR fallido'); };" +
+                    "xhr.send();"
+            );
 
-            // Leemos el JSON del body (en Linux headless devuelve el texto puro)
-            String json = driver.findElement(By.tagName("body")).getText().trim();
-
-            // Log para verificar en GitHub Actions que el JSON llega correctamente
             System.out.println("JSON recibido. Primeros 80 chars: " +
                     json.substring(0, Math.min(80, json.length())));
 
