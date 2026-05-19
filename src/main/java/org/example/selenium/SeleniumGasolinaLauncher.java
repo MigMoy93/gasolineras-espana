@@ -71,10 +71,13 @@ public class SeleniumGasolinaLauncher {
         options.addArguments("--disable-dev-shm-usage");
         options.addArguments("--disable-gpu");
 
+        // Desactiva el visor JSON de Chrome: sin esto, --headless=new envuelve
+        // la respuesta JSON en HTML de visor (añade texto "Raw data" u otros
+        // elementos de UI antes del '{'), lo que rompe el parse de Gson.
+        options.addArguments("--disable-features=JSONView");
+
         // Creamos el navegador
         WebDriver driver = new ChromeDriver(options);
-
-
 
         try {
         
@@ -85,7 +88,12 @@ public class SeleniumGasolinaLauncher {
             new WebDriverWait(driver, Duration.ofSeconds(15))
                     .until(d -> !d.findElement(By.tagName("body")).getText().isEmpty());
         
-            String json = driver.findElement(By.tagName("body")).getText();
+            String bodyText = driver.findElement(By.tagName("body")).getText();
+
+            // Red de seguridad: si quedara algún prefijo de texto antes del JSON,
+            // lo descartamos buscando el primer '{'
+            int inicio = bodyText.indexOf('{');
+            String json = (inicio > 0) ? bodyText.substring(inicio) : bodyText;
         
             return json;
         
