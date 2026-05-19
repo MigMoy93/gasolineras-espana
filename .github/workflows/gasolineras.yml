@@ -4,7 +4,7 @@ name: actualizar-gasolineras
 on:
   workflow_dispatch:   # Permite lanzarlo manualmente
   schedule:
-    - cron: "15 5 * * *"  # Ejecución diaria a las 05:15 UTC
+    - cron: "12 3 * * *"  # Ejecución diaria a las 03:12 UTC, hora poco comun para evitar saturacion
 
 # Permisos necesarios para hacer push al repositorio
 permissions:
